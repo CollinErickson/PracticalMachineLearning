@@ -1,0 +1,191 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Collin"
+date: "06/20/2014"
+output: html_document
+---
+
+
+
+##Loading the data
+
+First step was to load the entire training dataset provided and partition it into a training and testing set.
+
+```{r,message=FALSE}
+library(caret)
+training <- read.csv('pml-training.csv')
+testing <- read.csv('pml-testing.csv')
+partition <- createDataPartition(y=training$classe,
+                          p=.7,list=F)
+train1 <- training[partition,]
+test1 <- training[-partition,]
+```
+
+## Random forest
+
+I decided that I would use random forests as the learning method because it was one of the 
+methods we learned about in the third week of the class and it sounded like it would likely 
+give good results. 
+I considered trying multiple methods and then using voting to pick my answer, but 
+after seeing how long it took the code to run I settled with just one random forest.
+
+
+##First attempt at training and prediction
+
+My first thought was to try to train it using all the other columns for learning. 
+
+``` {r,eval=F}
+modFit <- train(classe ~ ., data=train1,method='rf')
+```
+
+After it ran for awhile without completing, I realized that it probably was too much data for prediction. I decided to be smarter about what data to use in the model.
+
+
+## Selecting the data
+
+To save on computation time I switched to using only 30% of the data for training, leaving the rest for testing. 
+
+```{r}
+partition <- createDataPartition(y=training$classe,
+                          p=.3,list=F)
+train1 <- training[partition,]
+test1 <- training[-partition,]
+```
+
+
+I tried to plot some of the variables against each other using the classe for the coloring.
+From the first plot I made I realized that I probably would not need to use all the columns of data 
+in order to get good classification. This plot shows just two of the variables plotted and it is 
+clear that there is a relation between the variables and the classe.
+
+``` {r,cache=T}
+qplot(x=roll_belt,y=pitch_belt,col=classe,data=train1)
+```
+
+The first training I tried to do with this data was a random forest using only the four main variables 
+associated with belt, `roll_belt, pitch_belt, yaw_belt, total_accel_belt`. 
+This was arbitrary, I only used them because they were the first columns that looked 
+meaningful data. 
+This took about ten minutes to run.
+
+```{r,message=FALSE,cache=TRUE}
+modFit <- train(classe ~ roll_belt + pitch_belt + yaw_belt + total_accel_belt, data=train1, method='rf')
+test1$predicted <- predict(modFit,test1)
+test1$correct <- test1$classe==test1$predicted
+confusionMatrix(test1$predicted,test1$classe)
+```
+
+This predicts the classe of the test variables with .849 accuracy, which is superb for using on 30% of the data and 
+only four of the columns of the data. 
+I decided to redo the model adding the four variables associated with arm and forearm. This still omits most 
+of the columns from the spreadsheet, but using all of the useful data would take far to long to calculate. 
+
+
+
+
+
+
+                
+```{r,message=FALSE,cache=TRUE}
+modFit <- train(classe ~ roll_belt + pitch_belt + yaw_belt + total_accel_belt +
+                  roll_dumbbell+pitch_dumbbell+yaw_dumbbell + total_accel_dumbbell,
+                data=train1,method='rf')
+test1$predicted <- predict(modFit,test1)
+test1$correct <- test1$classe==test1$predicted
+confusionMatrix(test1$predicted,test1$classe)
+```                
+                
+                
+
+
+                
+```{r,message=FALSE,cache=TRUE}
+modFit <- train(classe ~ roll_belt + pitch_belt + yaw_belt + total_accel_belt +
+                  roll_dumbbell+pitch_dumbbell+yaw_dumbbell + total_accel_dumbbell + 
+                  roll_arm + pitch_arm + yaw_arm + total_accel_arm + 
+                  roll_forearm + pitch_forearm + yaw_forearm + total_accel_forearm, 
+                data=train1,method='rf') 
+test1$predicted <- predict(modFit,test1)
+test1$correct <- test1$classe==test1$predicted
+confusionMatrix(test1$predicted,test1$classe)
+```         
+
+
+```
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    A    B    C    D    E
+         A 3855   50    3    2    3
+         B   20 2532   56    1   13
+         C   11   54 2309   39   15
+         D   16   10   27 2207   17
+         E    4   11    0    2 2476
+
+Overall Statistics
+                                          
+               Accuracy : 0.9742          
+                 95% CI : (0.9714, 0.9768)
+    No Information Rate : 0.2844          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.9674          
+ Mcnemar's Test P-Value : 3.963e-10       
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            0.9869   0.9530   0.9641   0.9805   0.9810
+Specificity            0.9941   0.9919   0.9895   0.9939   0.9985
+Pos Pred Value         0.9852   0.9657   0.9510   0.9693   0.9932
+Neg Pred Value         0.9948   0.9887   0.9924   0.9962   0.9957
+Prevalence             0.2844   0.1935   0.1744   0.1639   0.1838
+Detection Rate         0.2807   0.1844   0.1681   0.1607   0.1803
+Detection Prevalence   0.2849   0.1909   0.1768   0.1658   0.1815
+Balanced Accuracy      0.9905   0.9724   0.9768   0.9872   0.9897
+```
+
+## Submission
+
+97% accuracy is fantastic so I decided that I would use this model for the assignment submission. I used the predict 
+function to get predictions for the testing data.
+
+```
+> predictions <- predict(modFit,testing)
+> predictions
+ [1] B A B A A E D B A A B C B A E E A B B B
+Levels: A B C D E
+```
+
+When I submitted the files with these classifications, all of them were correct.
+
+## Conclusion
+
+In conclusion, I used the random forest learning method in the `train` function. Computation time was a huge limitation, 
+so I had to be careful about how much data I used and how many variables were used for learning.
+I used 30% of the data for training, which is much smaller than typical, leaving 70% for testing the model.
+I got
+
+When I used the learning model of the data set aside for testing, 
+its accuracy was over 97%. 
+
+
+
+
+
+
+
+
+
+=====
+```
+Class: A Class: B Class: C Class: D Class: E
+Sensitivity            0.8777   0.8311   0.8107   0.8158   0.9233
+Specificity            0.9339   0.9669   0.9549   0.9688   0.9908
+Pos Pred Value         0.8407   0.8577   0.7916   0.8369   0.9575
+Neg Pred Value         0.9505   0.9598   0.9598   0.9641   0.9829
+Prevalence             0.2844   0.1935   0.1744   0.1639   0.1838
+Detection Rate         0.2496   0.1608   0.1414   0.1337   0.1697
+Detection Prevalence   0.2969   0.1875   0.1786   0.1598   0.1773
+Balanced Accuracy      0.9058   0.8990   0.8828   0.8923   0.9570
+```
