@@ -127,7 +127,7 @@ predictions
 When I submitted the files with these classifications, all of them were correct.
 
 
-## Indivual trees
+## Individual trees
 
 We can try to look at an individual tree from the forest.
 
